@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ocean Key Hunt - By Fatima Fathi</title>
+    <style>
+        /* ==========================================================================
+           RESPONSIVE UNIT
+           --u = 1/1000 of the game frame width. Every size inside the game is
+           written as calc(var(--u) * N), so the whole design (including the
+           flashcard, victory screen and secret panel) scales with the screen.
+           ========================================================================== */
+        :root {
+            --u: 0.9px; /* real value is set by fitGame() in JS = frame width / 1280 */
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body { width: 100%; height: 100%; }
+
+        body {
+            background-color: #03045e;
+            font-family: 'Arial Black', 'Impact', 'Fredoka One', 'Comic Sans MS', cursive, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* 16:9 FIXED RATIO SAFE FRAME */
+        #game-frame {
+            width: 100vw;
+            height: 56.25vw;
+            flex-shrink: 0;
+            position: relative;
+            background: #0077b6 url('assets/bg.png') no-repeat center center;
+            background-size: cover;
+            border: calc(var(--u) * 6) solid #000;
+            border-radius: calc(var(--u) * 16);
+            overflow: hidden;
+            box-shadow: 0 calc(var(--u) * 25) calc(var(--u) * 60) rgba(0,0,0,0.9);
+        }
+
+        #fx-canvas {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* ================= START SCREEN ================= */
+        #start-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, #00b4d8 0%, #0077b6 55%, #023e8a 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 500;
+            overflow: hidden;
+        }
+        .start-sunburst {
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background: repeating-conic-gradient(from 0deg, rgba(255,255,255,0.12) 0deg 15deg, transparent 15deg 30deg);
+            animation: spinSunburst 35s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes spinSunburst { 100% { transform: rotate(360deg); } }
+
+        .start-content-block {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 20;
+            gap: calc(var(--u) * 15);
+        }
+        .main-logo-wrap {
+            width: calc(var(--u) * 480);
+            max-width: 80%;
+            filter: drop-shadow(calc(var(--u) * 8) calc(var(--u) * 8) 0 #000);
+            animation: floatLogo 3s infinite ease-in-out;
+        }
+        .main-logo-wrap img { width: 100%; height: auto; display: block; }
+        @keyframes floatLogo {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(calc(var(--u) * -10)) scale(1.02); }
+        }
+
+        .game-slogan-box {
+            background: linear-gradient(180deg, #ffd166 0%, #ffb703 100%);
+            color: #000;
+            border: calc(var(--u) * 5) solid #000;
+            padding: calc(var(--u) * 10) calc(var(--u) * 32);
+            border-radius: calc(var(--u) * 40);
+            font-size: calc(var(--u) * 20);
+            font-weight: 900;
+            letter-spacing: calc(var(--u) * 1.5);
+            box-shadow: 0 calc(var(--u) * 8) 0 #000;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        .btn-play-deluxe {
+            position: relative;
+            background: linear-gradient(180deg, #06d6a0 0%, #059669 100%);
+            border: calc(var(--u) * 6) solid #000;
+            border-radius: calc(var(--u) * 60);
+            padding: calc(var(--u) * 18) calc(var(--u) * 75);
+            font-family: inherit;
+            font-size: calc(var(--u) * 42);
+            font-weight: 900;
+            color: #fff;
+            text-shadow: calc(var(--u) * 4) calc(var(--u) * 4) 0 #000;
+            box-shadow: 0 calc(var(--u) * 10) 0 #000;
+            cursor: pointer;
+            overflow: hidden;
+            letter-spacing: calc(var(--u) * 3);
+            animation: pulseBtn 1.6s infinite ease-in-out;
+            margin-top: calc(var(--u) * 10);
+        }
+        .btn-play-deluxe:hover { background: linear-gradient(180deg, #34d399 0%, #059669 100%); }
+        .btn-play-deluxe:active { box-shadow: 0 calc(var(--u) * 4) 0 #000; }
+        .btn-play-deluxe::after {
+            content: '';
+            position: absolute;
+            top: -50%; left: -60%;
+            width: 40%; height: 200%;
+            background: rgba(255, 255, 255, 0.45);
+            transform: rotate(30deg);
+            animation: sheenPass 2.8s infinite;
+        }
+        @keyframes sheenPass { 0% { left: -60%; } 30%, 100% { left: 140%; } }
+        @keyframes pulseBtn { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
+        .creator-signature {
+            position: absolute;
+            bottom: calc(var(--u) * 20);
+            background: #ffffff;
+            border: calc(var(--u) * 3) solid #000;
+            padding: calc(var(--u) * 8) calc(var(--u) * 26);
+            border-radius: calc(var(--u) * 30);
+            font-size: calc(var(--u) * 15);
+            font-weight: 900;
+            color: #d90429;
+            box-shadow: calc(var(--u) * 4) calc(var(--u) * 4) 0 #000;
+            letter-spacing: calc(var(--u) * 1);
+            z-index: 30;
+        }
+
+        /* ================= TOP UI BAR ================= */
+        #ui-bar {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 20%;
+            background: url('assets/ui_bar.png') no-repeat center top;
+            background-size: 100% 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 calc(var(--u) * 35) calc(var(--u) * 6) calc(var(--u) * 35);
+            z-index: 20;
+        }
+        .wood-ui-fallback {
+            background: linear-gradient(180deg, #ffb703 0%, #fb8500 80%, #d46b08 100%) !important;
+            border-bottom: calc(var(--u) * 6) solid #000 !important;
+        }
+
+        .ui-left {
+            display: flex;
+            align-items: flex-end;
+            gap: calc(var(--u) * 14);
+            height: 100%;
+        }
+        .brand-logo-ui {
+            height: 75%;
+            max-width: calc(var(--u) * 150);
+            object-fit: contain;
+            filter: drop-shadow(calc(var(--u) * 3) calc(var(--u) * 3) 0 #000);
+        }
+        .teacher-box {
+            height: 95%;
+            display: flex;
+            align-items: flex-end;
+            position: relative;
+        }
+        .teacher-avatar {
+            max-height: 100%;
+            max-width: calc(var(--u) * 95);
+            object-fit: contain;
+            filter: drop-shadow(calc(var(--u) * 3) calc(var(--u) * 3) 0 #000);
+            transform-origin: bottom center;
+            animation: breathTeacher 3s infinite ease-in-out;
+        }
+        @keyframes breathTeacher {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05, 0.95); }
+        }
+
+        #teacher-bubble {
+            position: absolute;
+            left: calc(var(--u) * 85); top: calc(var(--u) * 10);
+            background: #fff;
+            border: calc(var(--u) * 4) solid #000;
+            border-radius: calc(var(--u) * 16);
+            padding: calc(var(--u) * 6) calc(var(--u) * 14);
+            font-size: calc(var(--u) * 14);
+            font-weight: 900;
+            color: #d90429;
+            box-shadow: calc(var(--u) * 4) calc(var(--u) * 4) 0 #000;
+            display: none;
+            white-space: nowrap;
+            z-index: 30;
+        }
+        #teacher-bubble::after {
+            content: '';
+            position: absolute;
+            left: calc(var(--u) * -10); top: 50%;
+            transform: translateY(-50%);
+            border-width: calc(var(--u) * 6) calc(var(--u) * 10) calc(var(--u) * 6) 0;
+            border-style: solid;
+            border-color: transparent #000 transparent transparent;
+        }
+
+        .keys-vault {
+            display: flex;
+            align-items: center;
+            gap: calc(var(--u) * 12);
+            background: rgba(0, 0, 0, 0.45);
+            padding: calc(var(--u) * 6) calc(var(--u) * 16);
+            border-radius: calc(var(--u) * 40);
+            border: calc(var(--u) * 4) solid #000;
+        }
+        .slot-item {
+            width: calc(var(--u) * 48);
+            height: calc(var(--u) * 48);
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .slot-item img {
+            width: 100%; height: 100%;
+            object-fit: contain;
+            filter: drop-shadow(calc(var(--u) * 2) calc(var(--u) * 2) 0 #000);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .slot-item.locked img {
+            opacity: 0.35;
+            filter: grayscale(100%) drop-shadow(calc(var(--u) * 2) calc(var(--u) * 2) 0 #000);
+        }
+        .slot-item.unlocked img {
+            opacity: 1;
+            filter: drop-shadow(0 0 calc(var(--u) * 14) #ffd700);
+            transform: scale(1.18) rotate(5deg);
+        }
+
+        .ui-right {
+            display: flex;
+            align-items: center;
+            gap: calc(var(--u) * 14);
+        }
+        .chest-container {
+            width: calc(var(--u) * 60); height: calc(var(--u) * 60);
+            cursor: pointer;
+            animation: chestWiggle 3.5s infinite;
+        }
+        .chest-container img {
+            width: 100%; height: 100%;
+            object-fit: contain;
+            filter: drop-shadow(calc(var(--u) * 3) calc(var(--u) * 3) 0 #000);
+        }
+        @keyframes chestWiggle {
+            0%, 88%, 100% { transform: scale(1) rotate(0deg); }
+            90% { transform: scale(1.15) rotate(-8deg); }
+            93% { transform: scale(1.15) rotate(8deg); }
+            96% { transform: scale(1.15) rotate(-4deg); }
+        }
+        .ctrl-btn {
+            width: calc(var(--u) * 46); height: calc(var(--u) * 46);
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            outline: none;
+            transition: transform 0.1s;
+        }
+        .ctrl-btn:hover { transform: scale(1.15); }
+        .ctrl-btn:active { transform: scale(0.92); }
+        .ctrl-btn img {
+            width: 100%; height: 100%;
+            object-fit: contain;
+            filter: drop-shadow(calc(var(--u) * 2) calc(var(--u) * 2) 0 #000);
+        }
+
+        /* ================= OCEAN STAGE ================= */
+        #ocean-stage {
+            position: absolute;
+            bottom: 0; left: 0;
+            width: 100%; height: 80%;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            padding: calc(var(--u) * 20) calc(var(--u) * 45) calc(var(--u) * 30) calc(var(--u) * 45);
+            z-index: 2;
+        }
+        .creature-cell {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            cursor: pointer;
+            min-width: 0; min-height: 0;
+        }
+        .creature-bubble-aura {
+            position: absolute;
+            width: calc(var(--u) * 155);
+            height: calc(var(--u) * 155);
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.45) 0%, rgba(0, 180, 216, 0.25) 60%, transparent 75%);
+            border: calc(var(--u) * 3) dashed rgba(255, 255, 255, 0.6);
+            box-shadow: 0 0 calc(var(--u) * 15) rgba(255, 255, 255, 0.3);
+            pointer-events: none;
+            animation: pulseAura 3s infinite ease-in-out;
+        }
+        @keyframes pulseAura {
+            0%, 100% { transform: scale(0.96); opacity: 0.6; }
+            50% { transform: scale(1.08); opacity: 0.95; }
+        }
+        .creature-asset {
+            max-width: calc(var(--u) * 160);
+            max-height: calc(var(--u) * 160);
+            object-fit: contain;
+            filter: drop-shadow(0 calc(var(--u) * 8) 0 rgba(0,0,0,0.5)) drop-shadow(0 0 calc(var(--u) * 8) rgba(255,255,255,0.3));
+            transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 2;
+        }
+        .creature-cell:hover .creature-asset {
+            transform: scale(1.22) rotate(4deg) !important;
+            filter: drop-shadow(0 0 calc(var(--u) * 22) #ffd166) drop-shadow(0 calc(var(--u) * 10) 0 #000);
+        }
+        .creature-cell.answered { cursor: default; pointer-events: none; }
+        .creature-cell.answered .creature-bubble-aura { display: none; }
+        .creature-cell.answered .creature-asset {
+            opacity: 0.4;
+            filter: grayscale(80%) drop-shadow(0 calc(var(--u) * 4) 0 rgba(0,0,0,0.2));
+            transform: scale(0.85) !important;
+        }
+        .creature-cell.answered::after {
+            content: '⭐';
+            position: absolute;
+            font-size: calc(var(--u) * 42); top: 0;
+            filter: drop-shadow(calc(var(--u) * 3) calc(var(--u) * 3) 0 #000);
+            z-index: 3;
+        }
+
+        .bob-1 { animation: bobbingA 3.6s infinite ease-in-out; }
+        .bob-2 { animation: bobbingB 4.2s infinite ease-in-out; }
+        .bob-3 { animation: bobbingC 3.8s infinite ease-in-out; }
+        .bob-4 { animation: bobbingB 4.4s infinite ease-in-out; }
+        .bob-5 { animation: bobbingA 3.2s infinite ease-in-out; }
+        .bob-6 { animation: bobbingC 4.0s infinite ease-in-out; }
+        .bob-7 { animation: bobbingB 3.5s infinite ease-in-out; }
+        .bob-8 { animation: bobbingA 4.6s infinite ease-in-out; }
+        .bob-9 { animation: bobbingC 3.4s infinite ease-in-out; }
+
+        @keyframes bobbingA {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(calc(var(--u) * -16)) rotate(3deg); }
+        }
+        @keyframes bobbingB {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(calc(var(--u) * -20)) rotate(-3deg); }
+        }
+        @keyframes bobbingC {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(calc(var(--u) * -14)) rotate(2deg); }
+        }
+
+        /* ================= FLASHCARD MODAL (WORD ONLY) ================= */
+        #flashcard-modal {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(3, 4, 94, 0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            backdrop-filter: blur(6px);
+        }
+        .modal-box {
+            background: linear-gradient(180deg, #ffeedd 0%, #ffd166 100%);
+            border: calc(var(--u) * 8) solid #000;
+            border-radius: calc(var(--u) * 40);
+            width: calc(var(--u) * 780);
+            max-width: 94%;
+            padding: calc(var(--u) * 25) calc(var(--u) * 35);
+            box-shadow: 0 calc(var(--u) * 20) 0 #000;
+            display: flex;
+            align-items: center;
+            gap: calc(var(--u) * 25);
+            position: relative;
+            animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .modal-teacher-side {
+            width: calc(var(--u) * 175); height: calc(var(--u) * 270);
+            display: flex; align-items: flex-end; justify-content: center;
+            flex-shrink: 0; position: relative;
+        }
+        .modal-teacher-side img {
+            max-height: 100%; max-width: 100%;
+            object-fit: contain; filter: drop-shadow(calc(var(--u) * 4) calc(var(--u) * 4) 0 #000);
+        }
+        .teacher-ask-bubble {
+            position: absolute; top: calc(var(--u) * 10); right: calc(var(--u) * -20);
+            background: #fff; border: calc(var(--u) * 3) solid #000;
+            border-radius: calc(var(--u) * 12); padding: calc(var(--u) * 4) calc(var(--u) * 10);
+            font-size: calc(var(--u) * 13); font-weight: 900; color: #0077b6;
+            box-shadow: calc(var(--u) * 3) calc(var(--u) * 3) 0 #000; white-space: nowrap;
+        }
+        .modal-body {
+            flex: 1; min-width: 0;
+            display: flex; flex-direction: column; align-items: center; text-align: center;
+        }
+        .modal-word-frame {
+            width: 100%;
+            min-height: calc(var(--u) * 150);
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(255, 255, 255, 0.95);
+            border: calc(var(--u) * 5) solid #000;
+            border-radius: calc(var(--u) * 30);
+            padding: calc(var(--u) * 14) calc(var(--u) * 20);
+            box-shadow: inset 0 calc(var(--u) * 4) calc(var(--u) * 8) rgba(0,0,0,0.2);
+            margin-bottom: calc(var(--u) * 22);
+        }
+        .modal-title-word {
+            font-size: calc(var(--u) * 64);
+            font-weight: 900;
+            color: #ff0055;
+            line-height: 1.15;
+            letter-spacing: calc(var(--u) * 3);
+            text-shadow: calc(var(--u) * 4) calc(var(--u) * 4) 0 #000, calc(var(--u) * -2) calc(var(--u) * -2) 0 #000, calc(var(--u) * 2) calc(var(--u) * -2) 0 #000, calc(var(--u) * -2) calc(var(--u) * 2) 0 #000;
+            overflow-wrap: anywhere;
+            max-width: 100%;
+        }
+        .modal-actions { display: flex; gap: calc(var(--u) * 35); }
+        .action-btn {
+            width: calc(var(--u) * 86); height: calc(var(--u) * 86); background: transparent; border: none; cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .action-btn:hover { transform: scale(1.15); }
+        .action-btn:active { transform: scale(0.92); }
+        .action-btn img {
+            width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(calc(var(--u) * 4) calc(var(--u) * 4) 0 #000);
+        }
+
+        .flying-key-token {
+            position: absolute; width: calc(var(--u) * 62); height: calc(var(--u) * 62); pointer-events: none; z-index: 60;
+            filter: drop-shadow(0 0 calc(var(--u) * 16) #ffd700);
+            transition: all 0.85s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* ================= VICTORY SCREEN ================= */
+        #victory-modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, #ffe600 0%, #ffb703 60%, #fb8500 100%);
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 300; border: calc(var(--u) * 8) solid #000;
+        }
+        .sunburst-bg {
+            position: absolute; width: 200%; height: 200%;
+            background: repeating-conic-gradient(from 0deg, rgba(255,255,255,0.25) 0deg 15deg, transparent 15deg 30deg);
+            animation: spinSunburst 20s linear infinite; pointer-events: none;
+        }
+        .victory-ribbon {
+            background: #d90429; color: #fff; border: calc(var(--u) * 6) solid #000; padding: calc(var(--u) * 10) calc(var(--u) * 45);
+            border-radius: calc(var(--u) * 50); font-size: calc(var(--u) * 44); font-weight: 900;
+            text-shadow: calc(var(--u) * 4) calc(var(--u) * 4) 0 #000; box-shadow: 0 calc(var(--u) * 10) 0 #000; margin-bottom: calc(var(--u) * 15); z-index: 2;
+        }
+        .victory-centerpiece {
+            display: flex; align-items: center; gap: calc(var(--u) * 30); margin-bottom: calc(var(--u) * 20); z-index: 2;
+        }
+        .victory-chest-img {
+            width: calc(var(--u) * 175); height: calc(var(--u) * 175); filter: drop-shadow(calc(var(--u) * 6) calc(var(--u) * 6) 0 #000);
+            animation: bobbingA 3s infinite ease-in-out;
+        }
+        .victory-teacher-img {
+            width: calc(var(--u) * 165); height: calc(var(--u) * 245); object-fit: contain; filter: drop-shadow(calc(var(--u) * 5) calc(var(--u) * 5) 0 #000);
+        }
+        .replay-action-btn {
+            padding: calc(var(--u) * 16) calc(var(--u) * 55); font-family: inherit; font-size: calc(var(--u) * 28); font-weight: 900; background: #06d6a0;
+            color: #000; border: calc(var(--u) * 5) solid #000; border-radius: calc(var(--u) * 50);
+            box-shadow: 0 calc(var(--u) * 8) 0 #000; cursor: pointer; z-index: 2;
+        }
+        .replay-action-btn:hover { transform: scale(1.08); }
+        .replay-action-btn:active { transform: translateY(calc(var(--u) * 4)); box-shadow: 0 calc(var(--u) * 4) 0 #000; }
+        .victory-credits {
+            position: absolute; bottom: calc(var(--u) * 12); font-size: calc(var(--u) * 14); font-weight: 900; color: #000;
+            background: rgba(255, 255, 255, 0.85); padding: calc(var(--u) * 4) calc(var(--u) * 16); border-radius: calc(var(--u) * 15);
+            border: calc(var(--u) * 2) solid #000; z-index: 2;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* ================= SECRET WORDS PANEL ================= */
+        #secret-panel {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(3, 4, 94, 0.92);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 800;
+            backdrop-filter: blur(6px);
+        }
+        .secret-box {
+            width: 94%;
+            height: 92%;
+            background: #fff8e7;
+            border: calc(var(--u) * 6) solid #000;
+            border-radius: calc(var(--u) * 28);
+            box-shadow: 0 calc(var(--u) * 12) 0 #000;
+            display: flex;
+            flex-direction: column;
+            padding: calc(var(--u) * 18) calc(var(--u) * 24);
+            gap: calc(var(--u) * 12);
+        }
+        .secret-title {
+            font-size: calc(var(--u) * 26);
+            font-weight: 900;
+            color: #0077b6;
+            text-align: center;
+        }
+        .secret-sub {
+            font-size: calc(var(--u) * 14);
+            color: #444;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            font-weight: 700;
+        }
+        .secret-grid {
+            flex: 1;
+            min-height: 0;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: calc(var(--u) * 10);
+        }
+        .secret-card {
+            background: #fff;
+            border: calc(var(--u) * 3) solid #000;
+            border-radius: calc(var(--u) * 16);
+            display: flex;
+            align-items: center;
+            gap: calc(var(--u) * 10);
+            padding: calc(var(--u) * 8) calc(var(--u) * 12);
+            min-height: 0;
+        }
+        .secret-card img {
+            height: 80%;
+            width: calc(var(--u) * 70);
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+        .secret-card input {
+            flex: 1;
+            min-width: 0;
+            width: 100%;
+            font-family: Arial, sans-serif;
+            font-weight: 800;
+            font-size: calc(var(--u) * 24);
+            padding: calc(var(--u) * 8) calc(var(--u) * 10);
+            border: calc(var(--u) * 3) solid #000;
+            border-radius: calc(var(--u) * 10);
+            background: #fffbe0;
+            user-select: text;
+            -webkit-user-select: text;
+            outline: none;
+        }
+        .secret-card input:focus { background: #fff; border-color: #0077b6; }
+        .secret-size {
+            display: flex; align-items: center; justify-content: center;
+            gap: calc(var(--u) * 14);
+            font-size: calc(var(--u) * 20); font-weight: 900; color: #0077b6;
+        }
+        .secret-size input[type=range] { width: calc(var(--u) * 420); height: calc(var(--u) * 28); }
+        .secret-actions {
+            display: flex;
+            justify-content: center;
+            gap: calc(var(--u) * 14);
+        }
+        .secret-btn {
+            font-family: inherit;
+            font-weight: 900;
+            font-size: calc(var(--u) * 22);
+            padding: calc(var(--u) * 8) calc(var(--u) * 26);
+            border: calc(var(--u) * 4) solid #000;
+            border-radius: calc(var(--u) * 30);
+            box-shadow: 0 calc(var(--u) * 5) 0 #000;
+            cursor: pointer;
+            color: #000;
+        }
+        .secret-btn:active { transform: translateY(calc(var(--u) * 3)); box-shadow: 0 calc(var(--u) * 2) 0 #000; }
+        .secret-btn.save { background: #06d6a0; }
+        .secret-btn.reset { background: #ffd166; }
+        .secret-btn.close { background: #ef476f; color: #fff; }
+
+        /* ================= ROTATE HINT (portrait phones) ================= */
+        #rotate-hint {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #03045e;
+            color: #fff;
+            z-index: 9999;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            gap: 14px;
+            font-size: 22px;
+            padding: 20px;
+        }
+        #rotate-hint .ico { font-size: 70px; animation: tilt 1.6s infinite ease-in-out; }
+        @keyframes tilt { 0%,100% { transform: rotate(0); } 50% { transform: rotate(-90deg); } }
+        @media (orientation: portrait) and (max-width: 700px) {
+            #rotate-hint { display: flex; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="rotate-hint">
+    <div class="ico">📱</div>
+    <div>لف الموبايل بالعرض 🔄</div>
+    <div>Please rotate your phone</div>
+</div>
+
+<div id="game-frame">
+    <canvas id="fx-canvas"></canvas>
+
+    <!-- ================= START SCREEN ================= -->
+    <div id="start-overlay">
+        <div class="start-sunburst"></div>
+        <div class="start-content-block">
+            <div class="main-logo-wrap">
+                <img src="assets/logo.png" alt="Ocean Key Hunt">
+            </div>
+            <div class="game-slogan-box">
+                🌊 Dive Deep, Speak Loud & Unlock Treasures! 🔑
+            </div>
+            <button class="btn-play-deluxe" onclick="beginExperience()">
+                ▶ PLAY GAME
+            </button>
+        </div>
+        <div class="creator-signature">
+            ✨ Created with Love by Fatima Fathi ✨
+        </div>
+    </div>
+
+    <!-- ================= TOP UI BAR ================= -->
+    <div id="ui-bar">
+        <div class="ui-left">
+            <img class="brand-logo-ui" id="logo-img" src="assets/logo.png" alt="Ocean Key Hunt">
+            <div class="teacher-box">
+                <img class="teacher-avatar" id="ui-teacher" src="assets/teacher_idle.png" alt="Teacher">
+                <div id="teacher-bubble">Try Again! 👍</div>
+            </div>
+        </div>
+
+        <div class="keys-vault">
+            <div class="slot-item locked" id="slot-1"><img src="assets/key_slot.png" alt="Slot 1"></div>
+            <div class="slot-item locked" id="slot-2"><img src="assets/key_slot.png" alt="Slot 2"></div>
+            <div class="slot-item locked" id="slot-3"><img src="assets/key_slot.png" alt="Slot 3"></div>
+        </div>
+
+        <div class="ui-right">
+            <div class="chest-container" onclick="handleChestClick()">
+                <img id="ui-chest" src="assets/chest_closed.png" alt="Treasure Chest">
+            </div>
+            <button class="ctrl-btn" onclick="toggleAudioState()">
+                <img id="sound-btn-img" src="assets/btn_sound.png" alt="Sound">
+            </button>
+            <button class="ctrl-btn" onclick="resetGameSession()">
+                <img src="assets/btn_restart.png" alt="Restart">
+            </button>
+        </div>
+    </div>
+
+    <!-- ================= STAGE ================= -->
+    <div id="ocean-stage"></div>
+
+    <!-- ================= FLASHCARD MODAL (WORD ONLY) ================= -->
+    <div id="flashcard-modal">
+        <div class="modal-box">
+            <div class="modal-teacher-side">
+                <img id="modal-teacher-img" src="assets/teacher_point.png" alt="Teacher">
+                <div class="teacher-ask-bubble">Say the Word! 🗣️</div>
+            </div>
+            <div class="modal-body">
+                <div class="modal-word-frame">
+                    <div id="modal-word-title" class="modal-title-word">WORD</div>
+                </div>
+                <div class="modal-actions">
+                    <button class="action-btn" onclick="submitEvaluation(false)">
+                        <img src="assets/btn_wrong.png" alt="Wrong">
+                    </button>
+                    <button class="action-btn" onclick="submitEvaluation(true)">
+                        <img src="assets/btn_correct.png" alt="Correct">
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= VICTORY SCREEN ================= -->
+    <div id="victory-modal">
+        <div class="sunburst-bg"></div>
+        <div class="victory-ribbon">🏆 YOU WIN! 🏆</div>
+        <div class="victory-centerpiece">
+            <img class="victory-teacher-img" src="assets/teacher_happy.png" alt="Celebrating Teacher">
+            <img class="victory-chest-img" src="assets/chest_open.png" alt="Unlocked Chest">
+        </div>
+        <button class="replay-action-btn" onclick="resetGameSession()">PLAY AGAIN 🔄</button>
+        <div class="victory-credits">Game Designed by Fatima Fathi ⭐</div>
+    </div>
+
+    <!-- ================= SECRET WORDS PANEL ================= -->
+    <div id="secret-panel">
+        <div class="secret-box">
+            <div class="secret-title">🔒 Secret Words Setup</div>
+            <div class="secret-sub">اكتب الكلمة اللي هتظهر مع كل حيوان — سيبها فاضية عشان ترجع للاسم الأصلي</div>
+            <div class="secret-grid" id="secret-grid"></div>
+            <div class="secret-size">
+                <span>🔎 Size / الحجم</span>
+                <input type="range" id="ui-scale-range" min="60" max="140" step="5" value="100" oninput="setUiScale(this.value)">
+                <span id="ui-scale-label">100%</span>
+            </div>
+            <div class="secret-actions">
+                <button class="secret-btn save" onclick="saveSecretWords()">💾 Save</button>
+                <button class="secret-btn reset" onclick="resetSecretWords()">↩ Default</button>
+                <button class="secret-btn close" onclick="closeSecretPanel()">✖ Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* ==========================================================================
+       1. SMART SVG FALLBACK SYSTEM
+       ========================================================================== */
+    function makeFallback(type, name, color) {
+        if (type === 'logo') {
+            return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="120" viewBox="0 0 300 120"><rect width="100%" height="100%" rx="22" fill="%23ffd166" stroke="%23000" stroke-width="8"/><text x="50%" y="46%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="28" fill="%2300b4d8" stroke="%23000" stroke-width="2">OCEAN KEY</text><text x="50%" y="82%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="26" fill="%23ff0055" stroke="%23000" stroke-width="2">HUNT 🔑</text></svg>`;
+        }
+        if (type === 'teacher') {
+            return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="260" viewBox="0 0 160 260"><circle cx="80" cy="90" r="62" fill="%23f4a261" stroke="%23000" stroke-width="6"/><path d="M22,108 C22,40 138,40 138,108 C138,168 22,168 22,108 Z" fill="%23faedcd" stroke="%23000" stroke-width="6"/><rect x="42" y="24" width="76" height="22" rx="10" fill="%23333" stroke="%23000" stroke-width="4"/><circle cx="60" cy="100" r="14" fill="%234a2810"/><circle cx="100" cy="100" r="14" fill="%234a2810"/><circle cx="63" cy="97" r="4" fill="%23fff"/><circle cx="103" cy="97" r="4" fill="%23fff"/><path d="M65,130 Q80,145 95,130" stroke="%23000" stroke-width="5" fill="none"/><path d="M30,170 L130,170 L145,260 L15,260 Z" fill="%23c77dff" stroke="%23000" stroke-width="6"/><text x="50%" y="235" dominant-baseline="middle" text-anchor="middle" font-weight="900" font-size="16" fill="%23fff">${name}</text></svg>`;
+        }
+        if (type === 'creature') {
+            return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140" viewBox="0 0 140 140"><ellipse cx="70" cy="70" rx="55" ry="45" fill="${encodeURIComponent(color)}" stroke="%23000" stroke-width="8"/><circle cx="50" cy="60" r="15" fill="%23fff" stroke="%23000" stroke-width="4"/><circle cx="53" cy="60" r="7" fill="%23000"/><circle cx="90" cy="60" r="15" fill="%23fff" stroke="%23000" stroke-width="4"/><circle cx="87" cy="60" r="7" fill="%23000"/><path d="M55,90 Q70,105 85,90" stroke="%23000" stroke-width="6" fill="none"/></svg>`;
+        }
+        if (type === 'key') {
+            return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="40" cy="50" r="25" fill="%23ffd700" stroke="%23000" stroke-width="8"/><rect x="55" y="42" width="38" height="16" fill="%23ffd700" stroke="%23000" stroke-width="6"/><rect x="80" y="58" width="10" height="14" fill="%23ffd700" stroke="%23000" stroke-width="6"/></svg>`;
+        }
+        if (type === 'key_slot') {
+            return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="%23555" stroke="%23000" stroke-width="8"/><circle cx="50" cy="40" r="12" fill="%23222"/><polygon points="44,40 56,40 60,68 40,68" fill="%23222"/></svg>`;
+        }
+        if (type === 'chest_closed') {
+            return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect x="15" y="35" width="70" height="50" rx="8" fill="%238b4513" stroke="%23000" stroke-width="8"/><path d="M15,45 Q50,20 85,45 Z" fill="%23a0522d" stroke="%23000" stroke-width="8"/><circle cx="50" cy="60" r="8" fill="%23ffd700" stroke="%23000" stroke-width="3"/></svg>`;
+        }
+        if (type === 'chest_open') {
+            return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect x="15" y="45" width="70" height="42" rx="6" fill="%238b4513" stroke="%23000" stroke-width="8"/><path d="M15,40 Q50,5 85,30 Z" fill="%23a0522d" stroke="%23000" stroke-width="8"/><circle cx="50" cy="45" r="18" fill="%23ffd700"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="20">✨</text></svg>`;
+        }
+        if (type === 'btn') {
+            let bg = '%232ecc71', icon = '✔';
+            if (name === 'wrong') { bg = '%23e74c3c'; icon = '✖'; }
+            if (name === 'sound') { bg = '%233a86ff'; icon = '🔊'; }
+            if (name === 'sound_off') { bg = '%236c757d'; icon = '🔇'; }
+            if (name === 'restart') { bg = '%23fb5607'; icon = '🔄'; }
+            return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" fill="${bg}" stroke="%23000" stroke-width="8"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-size="44" font-weight="900" fill="%23fff" stroke="%23000" stroke-width="2">${icon}</text></svg>`;
+        }
+        return '';
+    }
+
+    function secureAssetLoader() {
+        document.querySelectorAll('img').forEach(img => {
+            img.onerror = function() {
+                this.onerror = null;
+                const src = this.getAttribute('src') || '';
+                if (src.includes('logo')) this.src = makeFallback('logo');
+                else if (src.includes('teacher_idle')) this.src = makeFallback('teacher', 'Teacher', '');
+                else if (src.includes('teacher_point')) this.src = makeFallback('teacher', 'Look!', '');
+                else if (src.includes('teacher_happy')) this.src = makeFallback('teacher', 'Win!', '');
+                else if (src.includes('teacher_thumbsup')) this.src = makeFallback('teacher', '👍', '');
+                else if (src.includes('key_slot')) this.src = makeFallback('key_slot');
+                else if (src.includes('key')) this.src = makeFallback('key');
+                else if (src.includes('chest_closed')) this.src = makeFallback('chest_closed');
+                else if (src.includes('chest_open')) this.src = makeFallback('chest_open');
+                else if (src.includes('btn_correct')) this.src = makeFallback('btn', 'correct');
+                else if (src.includes('btn_wrong')) this.src = makeFallback('btn', 'wrong');
+                else if (src.includes('btn_sound_off')) this.src = makeFallback('btn', 'sound_off');
+                else if (src.includes('btn_sound')) this.src = makeFallback('btn', 'sound');
+                else if (src.includes('btn_restart')) this.src = makeFallback('btn', 'restart');
+            };
+        });
+
+        const uiBarTest = new Image();
+        uiBarTest.src = 'assets/ui_bar.png';
+        uiBarTest.onerror = () => document.getElementById('ui-bar').classList.add('wood-ui-fallback');
+    }
+
+    /* ==========================================================================
+       2. CARTOON AUDIO SYNTHESIZER
+       ========================================================================== */
+    let audioContext = null;
+    let audioMuted = false;
+
+    function ensureAudioUnlocked() {
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') audioContext.resume();
+    }
+
+    function emitAudio(cue) {
+        if (audioMuted) return;
+        try {
+            ensureAudioUnlocked();
+            const t = audioContext.currentTime;
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+
+            if (cue === 'tap') {
+                osc.frequency.setValueAtTime(450, t);
+                osc.frequency.exponentialRampToValueAtTime(900, t + 0.09);
+                gain.gain.setValueAtTime(0.25, t);
+                gain.gain.linearRampToValueAtTime(0, t + 0.09);
+                osc.start(t); osc.stop(t + 0.09);
+            }
+            else if (cue === 'bubble') {
+                osc.frequency.setValueAtTime(540, t);
+                osc.frequency.exponentialRampToValueAtTime(1400, t + 0.15);
+                gain.gain.setValueAtTime(0.25, t);
+                gain.gain.linearRampToValueAtTime(0, t + 0.15);
+                osc.start(t); osc.stop(t + 0.15);
+            }
+            else if (cue === 'key_chime') {
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                    const o = audioContext.createOscillator();
+                    const g = audioContext.createGain();
+                    o.connect(g); g.connect(audioContext.destination);
+                    o.frequency.setValueAtTime(freq, t + idx * 0.08);
+                    g.gain.setValueAtTime(0.25, t + idx * 0.08);
+                    g.gain.linearRampToValueAtTime(0, t + idx * 0.08 + 0.3);
+                    o.start(t + idx * 0.08); o.stop(t + idx * 0.08 + 0.3);
+                });
+            }
+            else if (cue === 'boing_wrong') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(320, t);
+                osc.frequency.linearRampToValueAtTime(120, t + 0.3);
+                gain.gain.setValueAtTime(0.25, t);
+                gain.gain.linearRampToValueAtTime(0, t + 0.3);
+                osc.start(t); osc.stop(t + 0.3);
+            }
+            else if (cue === 'fanfare') {
+                const notes = [440, 554.37, 659.25, 880, 880, 880, 1108.73];
+                const timing = [0, 0.14, 0.28, 0.42, 0.56, 0.70, 0.84];
+                notes.forEach((f, i) => {
+                    const o = audioContext.createOscillator();
+                    const g = audioContext.createGain();
+                    o.connect(g); g.connect(audioContext.destination);
+                    o.type = 'triangle';
+                    o.frequency.setValueAtTime(f, t + timing[i]);
+                    g.gain.setValueAtTime(0.3, t + timing[i]);
+                    g.gain.linearRampToValueAtTime(0, t + timing[i] + 0.3);
+                    o.start(t + timing[i]); o.stop(t + timing[i] + 0.3);
+                });
+            }
+        } catch(err) { console.warn('Audio synthesis bypassed:', err); }
+    }
+
+    function toggleAudioState() {
+        audioMuted = !audioMuted;
+        const btnImg = document.getElementById('sound-btn-img');
+        btnImg.onerror = null;
+        btnImg.src = audioMuted ? 'assets/btn_sound_off.png' : 'assets/btn_sound.png';
+        btnImg.onerror = () => { btnImg.src = makeFallback('btn', audioMuted ? 'sound_off' : 'sound'); };
+        emitAudio('tap');
+    }
+
+    /* ==========================================================================
+       3. GAME DATA & SECRET WORDS SYSTEM
+       ========================================================================== */
+    // 'name' is only the default word. The word actually shown on the card is 'word'.
+    const ROSTER = [
+        { id: 'dolphin',  name: 'DOLPHIN',   img: 'assets/dolphin.png',  color: '#38bdf8' },
+        { id: 'octopus',  name: 'OCTOPUS',   img: 'assets/octopus.png',  color: '#a855f7' },
+        { id: 'shark',    name: 'SHARK',     img: 'assets/shark.png',    color: '#06b6d4' },
+        { id: 'turtle',   name: 'TURTLE',    img: 'assets/turtle.png',   color: '#22c55e' },
+        { id: 'fish',     name: 'FISH',      img: 'assets/fish.png',     color: '#f97316' },
+        { id: 'jellyfish',name: 'JELLYFISH', img: 'assets/jellyfish.png',color: '#ec4899' },
+        { id: 'crab',     name: 'CRAB',      img: 'assets/crab.png',     color: '#ef4444' },
+        { id: 'whale',    name: 'WHALE',     img: 'assets/whale.png',    color: '#3b82f6' },
+        { id: 'seahorse', name: 'SEAHORSE',  img: 'assets/seahorse.png', color: '#eab308' }
+    ];
+
+    const WORDS_STORAGE_KEY = 'okh_custom_words_v1';
+
+    function loadSavedWords() {
+        let saved = [];
+        try {
+            const raw = localStorage.getItem(WORDS_STORAGE_KEY);
+            if (raw) saved = JSON.parse(raw);
+        } catch (e) { saved = []; }
+        ROSTER.forEach((c, i) => {
+            const w = (saved && typeof saved[i] === 'string') ? saved[i].trim() : '';
+            c.word = w || c.name;
+        });
+    }
+
+    // ---- Secret entry: tap the small top-bar logo 5 times quickly (or Ctrl+Alt+W) ----
+    let secretTaps = 0;
+    let secretTimer = null;
+
+    function registerSecretTap() {
+        secretTaps++;
+        clearTimeout(secretTimer);
+        secretTimer = setTimeout(() => { secretTaps = 0; }, 2500);
+        if (secretTaps >= 5) {
+            secretTaps = 0;
+            openSecretPanel();
+        }
+    }
+
+    function openSecretPanel() {
+        const grid = document.getElementById('secret-grid');
+        grid.innerHTML = '';
+        ROSTER.forEach((c, i) => {
+            const card = document.createElement('div');
+            card.className = 'secret-card';
+
+            const img = document.createElement('img');
+            img.src = c.img;
+            img.alt = c.name;
+            img.onerror = () => { img.onerror = null; img.src = makeFallback('creature', c.name, c.color); };
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.id = `secret-word-${i}`;
+            input.value = c.word === c.name ? '' : c.word;
+            input.placeholder = c.name;
+            input.maxLength = 40;
+            input.autocomplete = 'off';
+
+            card.appendChild(img);
+            card.appendChild(input);
+            grid.appendChild(card);
+        });
+        const rng = document.getElementById('ui-scale-range');
+        rng.value = Math.round(uiScale * 100);
+        document.getElementById('ui-scale-label').textContent = Math.round(uiScale * 100) + '%';
+        document.getElementById('secret-panel').style.display = 'flex';
+    }
+
+    function setUiScale(v) {
+        uiScale = Math.min(1.4, Math.max(0.6, parseInt(v, 10) / 100));
+        try { localStorage.setItem(UI_SCALE_KEY, String(uiScale)); } catch (e) {}
+        fitGame();
+        const lab = document.getElementById('ui-scale-label');
+        if (lab) lab.textContent = Math.round(uiScale * 100) + '%';
+    }
+
+    function closeSecretPanel() {
+        document.getElementById('secret-panel').style.display = 'none';
+    }
+
+    function saveSecretWords() {
+        const list = ROSTER.map((c, i) => {
+            const el = document.getElementById(`secret-word-${i}`);
+            return el ? el.value.trim() : '';
+        });
+        try { localStorage.setItem(WORDS_STORAGE_KEY, JSON.stringify(list)); } catch (e) {}
+        loadSavedWords();
+        emitAudio('key_chime');
+        closeSecretPanel();
+    }
+
+    function resetSecretWords() {
+        try { localStorage.removeItem(WORDS_STORAGE_KEY); } catch (e) {}
+        loadSavedWords();
+        openSecretPanel();
+        emitAudio('tap');
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.altKey && (e.key === 'w' || e.key === 'W')) {
+            e.preventDefault();
+            openSecretPanel();
+        }
+    });
+
+    // Auto-shrink long words so they always fit the card
+    function fitWordSize(text) {
+        const len = text.length;
+        let size = 64;
+        if (len > 8) size = Math.max(24, 64 - (len - 8) * 3);
+        return size;
+    }
+
+    /* ==========================================================================
+       4. GAME ENGINE
+       ========================================================================== */
+    let tallyKeys = 0;
+    let selectedUnit = null;
+
+    function buildOceanField() {
+        const stage = document.getElementById('ocean-stage');
+        stage.innerHTML = '';
+        tallyKeys = 0;
+        syncSlotsUI();
+
+        document.getElementById('flashcard-modal').style.display = 'none';
+        document.getElementById('victory-modal').style.display = 'none';
+
+        const randOrder = [0,1,2,3,4,5,6,7,8].sort(() => 0.5 - Math.random());
+        const secretKeyIndices = randOrder.slice(0, 3);
+
+        ROSTER.forEach((creature, idx) => {
+            creature.hasKey = secretKeyIndices.includes(idx);
+            creature.cleared = false;
+
+            const cell = document.createElement('div');
+            cell.className = `creature-cell bob-${idx + 1}`;
+            cell.id = `unit-cell-${idx}`;
+
+            const aura = document.createElement('div');
+            aura.className = 'creature-bubble-aura';
+            cell.appendChild(aura);
+
+            const img = document.createElement('img');
+            img.className = 'creature-asset';
+            img.src = creature.img;
+            img.alt = creature.name;
+            img.onerror = () => { img.onerror = null; img.src = makeFallback('creature', creature.name, creature.color); };
+
+            cell.appendChild(img);
+            cell.onclick = () => launchCardInspection(creature, idx);
+            stage.appendChild(cell);
+        });
+
+        applyTeacherExpression('idle');
+    }
+
+    function launchCardInspection(creature, idx) {
+        if (creature.cleared) return;
+        emitAudio('tap');
+        selectedUnit = { index: idx };
+
+        const modal = document.getElementById('flashcard-modal');
+        const viewWord = document.getElementById('modal-word-title');
+        const viewTeacher = document.getElementById('modal-teacher-img');
+
+        const word = creature.word || creature.name;
+        viewWord.textContent = word;
+        viewWord.style.fontSize = `calc(var(--u) * ${fitWordSize(word)})`;
+
+        viewTeacher.onerror = null;
+        viewTeacher.src = 'assets/teacher_point.png';
+        viewTeacher.onerror = () => { viewTeacher.src = makeFallback('teacher', 'Look!', ''); };
+
+        modal.style.display = 'flex';
+    }
+
+    function submitEvaluation(passed) {
+        document.getElementById('flashcard-modal').style.display = 'none';
+
+        if (!passed) {
+            emitAudio('boing_wrong');
+            promptTeacherBubble("Try Again! 👍", 'thumbsup');
+            return;
+        }
+
+        const creature = ROSTER[selectedUnit.index];
+        const cell = document.getElementById(`unit-cell-${selectedUnit.index}`);
+        cell.classList.add('answered');
+        creature.cleared = true;
+
+        if (creature.hasKey) {
+            tallyKeys++;
+            emitAudio('key_chime');
+            applyTeacherExpression('happy');
+            dispatchFlyingKey(cell);
+        } else {
+            emitAudio('bubble');
+            promptTeacherBubble("Great! No Key 🫧", 'happy');
+        }
+    }
+
+    function dispatchFlyingKey(originElement) {
+        const gameFrame = document.getElementById('game-frame');
+        const frameRect = gameFrame.getBoundingClientRect();
+        const border = gameFrame.clientLeft;
+
+        const originRect = originElement.getBoundingClientRect();
+        const targetSlot = document.getElementById(`slot-${tallyKeys}`);
+        const targetRect = targetSlot.getBoundingClientRect();
+
+        const token = document.createElement('img');
+        token.className = 'flying-key-token';
+        token.src = 'assets/key.png';
+        token.onerror = () => { token.src = makeFallback('key'); };
+
+        const half = token.offsetWidth ? token.offsetWidth / 2 : 31;
+        const unit = currentU;
+        const tokenHalf = 31 * unit;
+
+        const startX = originRect.left - frameRect.left - border + (originRect.width / 2) - tokenHalf;
+        const startY = originRect.top - frameRect.top - border + (originRect.height / 2) - tokenHalf;
+        const endX = targetRect.left - frameRect.left - border + (targetRect.width / 2) - tokenHalf;
+        const endY = targetRect.top - frameRect.top - border + (targetRect.height / 2) - tokenHalf;
+
+        token.style.left = `${startX}px`;
+        token.style.top = `${startY}px`;
+        gameFrame.appendChild(token);
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                token.style.left = `${endX}px`;
+                token.style.top = `${endY}px`;
+                token.style.transform = 'scale(1.25) rotate(360deg)';
+            });
+        });
+
+        setTimeout(() => {
+            token.remove();
+            syncSlotsUI();
+            if (tallyKeys >= 3) {
+                setTimeout(triggerVictorySequence, 450);
+            }
+        }, 850);
+    }
+
+    function syncSlotsUI() {
+        for (let s = 1; s <= 3; s++) {
+            const slot = document.getElementById(`slot-${s}`);
+            const img = slot.querySelector('img');
+            img.onerror = null;
+
+            if (s <= tallyKeys) {
+                slot.className = 'slot-item unlocked';
+                img.src = 'assets/key.png';
+                img.onerror = () => { img.src = makeFallback('key'); };
+            } else {
+                slot.className = 'slot-item locked';
+                img.src = 'assets/key_slot.png';
+                img.onerror = () => { img.src = makeFallback('key_slot'); };
+            }
+        }
+    }
+
+    function applyTeacherExpression(pose) {
+        const avatar = document.getElementById('ui-teacher');
+        avatar.onerror = null;
+        avatar.src = `assets/teacher_${pose}.png`;
+        avatar.onerror = () => { avatar.src = makeFallback('teacher', pose, ''); };
+    }
+
+    function promptTeacherBubble(msg, pose) {
+        applyTeacherExpression(pose);
+        const bubble = document.getElementById('teacher-bubble');
+        bubble.textContent = msg;
+        bubble.style.display = 'block';
+
+        setTimeout(() => {
+            bubble.style.display = 'none';
+            applyTeacherExpression('idle');
+        }, 1600);
+    }
+
+    function triggerVictorySequence() {
+        emitAudio('fanfare');
+        const chest = document.getElementById('ui-chest');
+        chest.onerror = null;
+        chest.src = 'assets/chest_open.png';
+        chest.onerror = () => { chest.src = makeFallback('chest_open'); };
+
+        document.getElementById('victory-modal').style.display = 'flex';
+        applyTeacherExpression('happy');
+        spawnConfettiBlast();
+    }
+
+    function handleChestClick() {
+        emitAudio('tap');
+        promptTeacherBubble(`Found: ${tallyKeys}/3 Keys 🔑`, 'idle');
+    }
+
+    function beginExperience() {
+        emitAudio('tap');
+        document.getElementById('start-overlay').style.display = 'none';
+        ensureAudioUnlocked();
+    }
+
+    function resetGameSession() {
+        emitAudio('tap');
+        const chest = document.getElementById('ui-chest');
+        chest.onerror = null;
+        chest.src = 'assets/chest_closed.png';
+        chest.onerror = () => { chest.src = makeFallback('chest_closed'); };
+        buildOceanField();
+    }
+
+    /* ==========================================================================
+       5. AMBIENT BUBBLES & PARTICLES ENGINE
+       ========================================================================== */
+    const canvas = document.getElementById('fx-canvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    let confettiActive = false;
+    let bubblesList = [];
+
+    function resizeCanvas() {
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+    }
+
+    function fxScale() { return currentU; }
+
+    class Bubble {
+        constructor() { this.init(); }
+        init() {
+            this.x = Math.random() * canvas.width;
+            this.y = canvas.height + Math.random() * 50;
+            this.size = Math.random() * 12 + 6;
+            this.speed = Math.random() * 1.5 + 0.8;
+            this.alpha = Math.random() * 0.4 + 0.2;
+            this.wobble = Math.random() * Math.PI * 2;
+        }
+        update() {
+            const k = fxScale();
+            this.y -= this.speed * k;
+            this.wobble += 0.04;
+            this.x += Math.sin(this.wobble) * 0.5 * k;
+            if (this.y < -30) this.init();
+        }
+        draw() {
+            const k = fxScale();
+            ctx.save();
+            ctx.strokeStyle = `rgba(255, 255, 255, ${this.alpha * 1.4})`;
+            ctx.fillStyle = `rgba(255, 255, 255, ${this.alpha})`;
+            ctx.lineWidth = Math.max(1, 2 * k);
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size * k, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    function spawnConfettiBlast() {
+        confettiActive = true;
+        const k = fxScale();
+        const palette = ['#ffd166', '#ef476f', '#06d6a0', '#118ab2', '#ffffff', '#ffbe0b'];
+        for (let i = 0; i < 110; i++) {
+            particles.push({
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                vx: (Math.random() - 0.5) * 16 * k,
+                vy: ((Math.random() - 0.5) * 16 - 4) * k,
+                size: (Math.random() * 10 + 5) * k,
+                color: palette[Math.floor(Math.random() * palette.length)],
+                rotation: Math.random() * 360,
+                spin: (Math.random() - 0.5) * 12
+            });
+        }
+    }
+
+    function animateFX() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (bubblesList.length) {
+            bubblesList.forEach(b => { b.update(); b.draw(); });
+        }
+
+        if (confettiActive) {
+            const k = fxScale();
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.25 * k;
+                p.rotation += p.spin;
+
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rotation * Math.PI / 180);
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                ctx.restore();
+
+                if (p.y > canvas.height + 50) particles.splice(i, 1);
+            }
+        }
+        requestAnimationFrame(animateFX);
+    }
+
+    // Fit the 16:9 game frame to the real window and set the scale unit
+    const BASE_W = 1920;            // at 1920px wide, 1 unit = 1px (same look as the original)
+    const UI_SCALE_KEY = 'okh_ui_scale_v1';
+    let uiScale = 1;                // secret "Size" slider multiplier (0.6 - 1.4)
+    let currentU = 1;
+    try {
+        const sv = parseFloat(localStorage.getItem(UI_SCALE_KEY));
+        if (sv >= 0.6 && sv <= 1.4) uiScale = sv;
+    } catch (e) {}
+
+    function fitGame() {
+        const w = window.innerWidth || document.documentElement.clientWidth;
+        const h = window.innerHeight || document.documentElement.clientHeight;
+        const fw = Math.floor(Math.min(w, h * 16 / 9));
+        const fh = Math.floor(fw * 9 / 16);
+        const frame = document.getElementById('game-frame');
+        frame.style.width = fw + 'px';
+        frame.style.height = fh + 'px';
+        currentU = (fw / BASE_W) * uiScale;
+        document.documentElement.style.setProperty('--u', currentU + 'px');
+        resizeCanvas();
+    }
+    window.addEventListener('resize', fitGame);
+    window.addEventListener('orientationchange', () => setTimeout(fitGame, 250));
+    document.addEventListener('fullscreenchange', () => setTimeout(fitGame, 100));
+
+    window.onload = () => {
+        fitGame();
+        for (let i = 0; i < 16; i++) bubblesList.push(new Bubble());
+        animateFX();
+        secureAssetLoader();
+        loadSavedWords();
+        buildOceanField();
+
+        // Secret entry point (looks like a normal logo)
+        document.getElementById('logo-img').addEventListener('click', registerSecretTap);
+    };
+</script>
+</body>
+</html>
